@@ -9,7 +9,7 @@ export function createDeck() {
         rank: rank.id,
         value: rank.value,
         suit: suit.id,
-        label: `${rank.id}${suit.symbol}`
+        label: `${suit.symbol}${rank.id}`
       });
     }
   }

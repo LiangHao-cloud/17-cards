@@ -14,7 +14,7 @@ export function canActForSide(state, side) {
 }
 
 export function canSeeHand(state, side) {
-  if (game.user.isGM) return true;
+  if (game.user.isGM) return side === SIDES.GM;
   return side === SIDES.PLAYERS && state.active;
 }
 

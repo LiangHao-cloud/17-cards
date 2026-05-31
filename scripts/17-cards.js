@@ -14,6 +14,9 @@ Hooks.once("init", () => {
 
 Hooks.once("ready", () => {
   game.socket.on(SOCKET, applyAction);
+  const module = game.modules.get(MODULE_ID);
+  if (module) module.api = { open: () => SeventeenCardsApp.show() };
+  createOpenButton();
 });
 
 Hooks.on("updateSetting", (setting) => {
@@ -22,20 +25,16 @@ Hooks.on("updateSetting", (setting) => {
   }
 });
 
-Hooks.on("renderSceneControls", (_controls, html) => {
-  const button = $(`<li class="scene-control seventeen-cards-control" title="17 Cards"><i class="fas fa-dice"></i></li>`);
-  button.on("click", () => SeventeenCardsApp.show());
-  html.find(".main-controls").append(button);
-});
+function createOpenButton() {
+  if (document.getElementById("seventeen-cards-open")) return;
 
-Hooks.on("getSceneControlButtons", (controls) => {
-  const tokens = controls.find((control) => control.name === "token");
-  if (!tokens) return;
-  tokens.tools.push({
-    name: "seventeen-cards",
-    title: "17 Cards",
-    icon: "fas fa-dice",
-    button: true,
-    onClick: () => SeventeenCardsApp.show()
-  });
-});
+  const button = document.createElement("button");
+  button.id = "seventeen-cards-open";
+  button.type = "button";
+  button.title = "17 Cards";
+  button.innerHTML = `<i class="fas fa-dice"></i><span>17 Cards</span>`;
+  button.addEventListener("click", () => SeventeenCardsApp.show());
+
+  const target = document.getElementById("ui-top") || document.body;
+  target.appendChild(button);
+}

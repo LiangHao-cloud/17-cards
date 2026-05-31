@@ -50,7 +50,7 @@ function jokerAlternatives() {
         rank: rank.id,
         value: rank.value,
         suit: suit.id,
-        label: `Joker as ${rank.id}${suit.symbol}`,
+        label: `Joker as ${suit.symbol}${rank.id}`,
         jokerSubstitute: true
       });
     }

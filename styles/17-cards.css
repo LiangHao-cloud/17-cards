@@ -1,3 +1,16 @@
+#seventeen-cards-open {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+  height: 32px;
+  pointer-events: auto;
+  position: fixed;
+  right: 320px;
+  top: 10px;
+  width: auto;
+  z-index: 100;
+}
+
 .seventeen-cards {
   display: grid;
   gap: 12px;
@@ -82,10 +95,22 @@
   border: 1px solid var(--color-border-light-primary);
   border-radius: 6px;
   display: grid;
+  font-family: "Noto Color Emoji", "Segoe UI Emoji", var(--font-primary);
+  font-size: 18px;
   font-weight: 700;
   justify-items: center;
   padding: 6px;
   text-align: center;
+}
+
+.seventeen-cards-card.can-exchange {
+  cursor: pointer;
+}
+
+.seventeen-cards-card.can-exchange:hover,
+.seventeen-cards-card.is-selected {
+  border-color: var(--color-border-highlight);
+  box-shadow: 0 0 0 2px var(--color-border-highlight);
 }
 
 .seventeen-cards-card.is-hidden {
@@ -94,7 +119,9 @@
 }
 
 .seventeen-cards-card input {
+  height: 16px;
   margin: 0;
+  width: 16px;
 }
 
 .seventeen-cards-side__meta,

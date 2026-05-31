@@ -34,10 +34,10 @@ export const PHASE_LABELS = {
 };
 
 export const SUITS = [
-  { id: "spades", label: "Spades", symbol: "S" },
-  { id: "hearts", label: "Hearts", symbol: "H" },
-  { id: "diamonds", label: "Diamonds", symbol: "D" },
-  { id: "clubs", label: "Clubs", symbol: "C" }
+  { id: "spades", label: "Spades", symbol: "♠" },
+  { id: "hearts", label: "Hearts", symbol: "♥" },
+  { id: "diamonds", label: "Diamonds", symbol: "♦" },
+  { id: "clubs", label: "Clubs", symbol: "♣" }
 ];
 
 export const RANKS = [

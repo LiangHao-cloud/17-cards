@@ -6,9 +6,13 @@ import { otherSide, sideLabel } from "./permissions.js";
 
 export function currentRaiseLimits(state) {
   const existingBet = Number(state.betting?.currentBet) || 0;
-  if (state.phase === PHASES.FIRST_BETTING) return { min: Math.max(FIRST_RAISE_MIN, existingBet + 1), max: FIRST_RAISE_MAX };
+  if (state.phase === PHASES.FIRST_BETTING) return { min: Math.max(FIRST_RAISE_MIN, existingBet + 1), max: FIRST_RAISE_MAX, callAmount: existingBet };
   if (state.phase === PHASES.SECOND_BETTING) {
-    return { min: Math.max(FIRST_RAISE_MIN, state.betting.firstRoundBet || FIRST_RAISE_MIN, existingBet + 1), max: SECOND_RAISE_MAX };
+    return {
+      min: Math.max(FIRST_RAISE_MIN, state.betting.firstRoundBet || FIRST_RAISE_MIN, existingBet + 1),
+      max: SECOND_RAISE_MAX,
+      callAmount: existingBet
+    };
   }
   return null;
 }

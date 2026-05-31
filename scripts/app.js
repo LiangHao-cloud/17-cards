@@ -5,8 +5,24 @@ import { canActForSide, canSeeHand, sideLabel } from "./permissions.js";
 import { requestAction } from "./socket-controller.js";
 import { getState } from "./state.js";
 
-export class SeventeenCardsApp extends Application {
+const ApplicationV2 = foundry.applications?.api?.ApplicationV2;
+const BaseApplication = ApplicationV2 || Application;
+const IS_APPLICATION_V2 = Boolean(ApplicationV2);
+
+export class SeventeenCardsApp extends BaseApplication {
   static instance = null;
+
+  static DEFAULT_OPTIONS = {
+    id: "seventeen-cards",
+    window: {
+      title: "17 Cards",
+      resizable: true
+    },
+    position: {
+      width: 680
+    },
+    classes: ["seventeen-cards-app"]
+  };
 
   static get defaultOptions() {
     return foundry.utils.mergeObject(super.defaultOptions, {
@@ -22,11 +38,18 @@ export class SeventeenCardsApp extends Application {
 
   static show() {
     if (!this.instance) this.instance = new this();
-    this.instance.render(true);
+    if (IS_APPLICATION_V2) this.instance.render({ force: true });
+    else this.instance.render(true);
   }
 
   static renderIfOpen() {
-    ui.windows[this.instance?.appId]?.render(false);
+    if (!this.instance) return;
+    if (IS_APPLICATION_V2) this.instance.render({ force: true });
+    else ui.windows[this.instance.appId]?.render(false);
+  }
+
+  async _prepareContext() {
+    return this.getData();
   }
 
   getData() {
@@ -43,42 +66,88 @@ export class SeventeenCardsApp extends Application {
     };
   }
 
+  async _renderHTML(context) {
+    const wrapper = document.createElement("div");
+    wrapper.innerHTML = this.buildHtml(context);
+    return wrapper.firstElementChild;
+  }
+
+  _replaceHTML(result, content) {
+    content.replaceChildren(result);
+  }
+
+  _onRender(context, options) {
+    super._onRender?.(context, options);
+    this.activateDomListeners(this.element);
+  }
+
   async _renderInner(data) {
     return $(this.buildHtml(data));
   }
 
   activateListeners(html) {
     super.activateListeners(html);
+    const element = html instanceof HTMLElement ? html : html[0];
+    this.activateDomListeners(element);
+  }
 
-    html.find("[data-action='start']").on("click", async () => {
-      const form = html.find(".seventeen-cards-setup")[0];
-      const data = new FormData(form);
-      await requestAction("start", {
-        gmChips: Number(data.get("gmChips")),
-        playerChips: Number(data.get("playerChips")),
-        operatorUserId: data.get("operatorUserId"),
-        dealer: data.get("dealer")
-      });
-    });
+  activateDomListeners(element) {
+    if (!element) return;
+    if (element.dataset.listenersBound === "true") return;
+    element.dataset.listenersBound = "true";
 
-    html.find("[data-action='reset']").on("click", () => requestAction("reset"));
-    html.find("[data-action='confirm']").on("click", () => requestAction("confirm"));
+    element.addEventListener("click", async (event) => {
+      const card = event.target.closest("[data-exchange-card]");
+      if (card && element.contains(card)) {
+        const input = card.querySelector("input[type='checkbox']");
+        if (input && !input.disabled) {
+          event.preventDefault();
+          input.checked = !input.checked;
+          card.classList.toggle("is-selected", input.checked);
+        }
+        return;
+      }
 
-    html.find("[data-bet-action]").on("click", async (event) => {
-      const button = event.currentTarget;
-      const action = button.dataset.betAction;
-      const side = button.dataset.side;
-      const amountInput = html.find(`[data-raise-input='${side}']`);
-      await requestAction(action, {
-        side,
-        amount: Number(amountInput.val())
-      });
-    });
+      const button = event.target.closest("button");
+      if (!button || !element.contains(button) || button.disabled) return;
 
-    html.find("[data-action='exchange']").on("click", async (event) => {
-      const side = event.currentTarget.dataset.side;
-      const indexes = html.find(`[data-exchange='${side}']:checked`).map((_, input) => Number(input.value)).get();
-      await requestAction("exchange", { side, indexes });
+      if (button.dataset.action === "start") {
+        const form = element.querySelector(".seventeen-cards-setup");
+        const data = new FormData(form);
+        await requestAction("start", {
+          gmChips: Number(data.get("gmChips")),
+          playerChips: Number(data.get("playerChips")),
+          operatorUserId: data.get("operatorUserId"),
+          dealer: data.get("dealer")
+        });
+        return;
+      }
+
+      if (button.dataset.action === "reset") {
+        await requestAction("reset");
+        return;
+      }
+
+      if (button.dataset.action === "confirm") {
+        await requestAction("confirm");
+        return;
+      }
+
+      if (button.dataset.betAction) {
+        const side = button.dataset.side;
+        const amountInput = element.querySelector(`[data-raise-input='${side}']`);
+        await requestAction(button.dataset.betAction, {
+          side,
+          amount: Number(amountInput?.value)
+        });
+        return;
+      }
+
+      if (button.dataset.action === "exchange") {
+        const side = button.dataset.side;
+        const indexes = [...element.querySelectorAll(`[data-exchange='${side}']:checked`)].map((input) => Number(input.value));
+        await requestAction("exchange", { side, indexes });
+      }
     });
   }
 
@@ -192,10 +261,10 @@ export class SeventeenCardsApp extends Application {
   }
 
   renderCard(card, index, side, visible, canExchange) {
-    const label = visible ? cardToText(card) : "Hidden";
+    const label = visible ? cardToText(card) : "?";
     return `
-      <label class="seventeen-cards-card ${visible ? "" : "is-hidden"}">
-        ${canExchange ? `<input type="checkbox" data-exchange="${side}" value="${index}">` : ""}
+      <label class="seventeen-cards-card ${visible ? "" : "is-hidden"} ${canExchange ? "can-exchange" : ""}" ${canExchange ? `data-exchange-card="${side}"` : ""}>
+        ${canExchange ? `<input type="checkbox" data-exchange="${side}" value="${index}" aria-label="Exchange ${label}">` : ""}
         <span>${label}</span>
       </label>
     `;
@@ -205,14 +274,18 @@ export class SeventeenCardsApp extends Application {
     const limits = data.raiseLimits;
     if (!limits) return "";
     const disabled = enabled ? "" : "disabled";
+    const hasCallAmount = Number(limits.callAmount) > 0;
+    const canRaise = enabled && limits.min <= limits.max;
+    const raiseDisabled = canRaise ? "" : "disabled";
+    const callLabel = hasCallAmount ? `Call ${limits.callAmount}` : "Call";
     return `
       <div class="seventeen-cards-bets">
-        <button type="button" data-bet-action="call" data-side="${side}" ${disabled}>Call</button>
+        <button type="button" data-bet-action="call" data-side="${side}" ${disabled}>${callLabel}</button>
         <button type="button" data-bet-action="fold" data-side="${side}" ${disabled}>Fold</button>
-        <input type="number" data-raise-input="${side}" min="${limits.min}" max="${limits.max}" step="1" value="${limits.min}" ${disabled}>
-        <button type="button" data-bet-action="raise" data-side="${side}" ${disabled}>Raise</button>
+        <input type="number" data-raise-input="${side}" min="${limits.min}" max="${limits.max}" step="1" value="${Math.min(limits.min, limits.max)}" ${raiseDisabled}>
+        <button type="button" data-bet-action="raise" data-side="${side}" ${raiseDisabled}>Raise to</button>
       </div>
-      <p class="seventeen-cards-hint">Raise ${limits.min}-${limits.max}</p>
+      <p class="seventeen-cards-hint">${canRaise ? `Raise to ${limits.min}-${limits.max}` : `Maximum bet reached. ${hasCallAmount ? `Call ${limits.callAmount} or fold.` : "Call or fold."}`}</p>
     `;
   }
 
