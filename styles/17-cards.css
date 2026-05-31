@@ -1,0 +1,117 @@
+.seventeen-cards {
+  display: grid;
+  gap: 12px;
+}
+
+.seventeen-cards__header,
+.seventeen-cards__status,
+.seventeen-cards-side header,
+.seventeen-cards__footer {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.seventeen-cards__header h2,
+.seventeen-cards-side h3,
+.seventeen-cards-result h3 {
+  border: 0;
+  margin: 0;
+}
+
+.seventeen-cards__header p,
+.seventeen-cards__last,
+.seventeen-cards-hint,
+.seventeen-cards__empty,
+.seventeen-cards-side__meta {
+  color: var(--color-text-dark-secondary);
+  margin: 0;
+}
+
+.seventeen-cards-setup {
+  align-items: end;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.seventeen-cards-setup label {
+  display: grid;
+  gap: 4px;
+}
+
+.seventeen-cards__status {
+  background: rgba(0, 0, 0, 0.06);
+  border: 1px solid var(--color-border-light-tertiary);
+  border-radius: 6px;
+  flex-wrap: wrap;
+  padding: 8px;
+}
+
+.seventeen-cards__sides {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.seventeen-cards-side,
+.seventeen-cards-result {
+  border: 1px solid var(--color-border-light-tertiary);
+  border-radius: 6px;
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+}
+
+.seventeen-cards-side.is-turn {
+  border-color: var(--color-border-highlight);
+  box-shadow: 0 0 0 1px var(--color-border-highlight);
+}
+
+.seventeen-cards-hand {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(5, minmax(52px, 1fr));
+}
+
+.seventeen-cards-card {
+  align-items: center;
+  aspect-ratio: 3 / 4;
+  background: rgba(255, 255, 255, 0.65);
+  border: 1px solid var(--color-border-light-primary);
+  border-radius: 6px;
+  display: grid;
+  font-weight: 700;
+  justify-items: center;
+  padding: 6px;
+  text-align: center;
+}
+
+.seventeen-cards-card.is-hidden {
+  background: rgba(0, 0, 0, 0.08);
+  color: var(--color-text-dark-secondary);
+}
+
+.seventeen-cards-card input {
+  margin: 0;
+}
+
+.seventeen-cards-side__meta,
+.seventeen-cards-bets {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.seventeen-cards-bets input {
+  width: 76px;
+}
+
+@media (max-width: 720px) {
+  .seventeen-cards-setup,
+  .seventeen-cards__sides {
+    grid-template-columns: 1fr;
+  }
+}
