@@ -1,7 +1,7 @@
 import { ATTENDANCE_FEE, FIRST_RAISE_MAX, FIRST_RAISE_MIN, PHASES, SECOND_RAISE_MAX, SIDES } from "./constants.js";
-import { createDeck, draw, shuffle } from "./cards.js";
+import { cardToText, createDeck, draw, shuffle } from "./cards.js";
 import { compareHands } from "./hand-evaluator.js";
-import { clone, emptyState, resetBetting } from "./state.js";
+import { clone, emptyRoundLogs, emptyState, resetBetting } from "./state.js";
 import { otherSide, sideLabel } from "./permissions.js";
 
 export function currentRaiseLimits(state) {
@@ -48,9 +48,10 @@ export function beginRound(state, keepChips = true) {
     [SIDES.PLAYERS]: playerDraw.cards
   };
   next.exchangeDone = { [SIDES.GM]: false, [SIDES.PLAYERS]: false };
+  next.roundLogs = emptyRoundLogs();
   next.betting = resetBetting(0);
   next.result = null;
-  next.lastAction = `Round ${round} started. Attendance fees went to the house. ${sideLabel(next.turn)} acts first.`;
+  setLastAction(next, `Round ${round} started. Attendance fees went to the house. ${sideLabel(next.turn)} acts first.`);
   return next;
 }
 
@@ -70,7 +71,7 @@ export function handleRaise(state, side, amount) {
   next.betting.consecutiveCalls[side] = 0;
   next.betting.consecutiveCalls[otherSide(side)] = 0;
   next.turn = otherSide(side);
-  next.lastAction = `${sideLabel(side)} raised ${value}.`;
+  setLastAction(next, `${sideLabel(side)} raised to ${value}.`);
   return next;
 }
 
@@ -84,16 +85,16 @@ export function handleCall(state, side) {
     if (needed > 0) commitChips(next, side, needed);
     if (next.phase === PHASES.FIRST_BETTING) {
       next.betting.firstRoundBet = currentBet;
-      next.lastAction = `${sideLabel(side)} called ${currentBet}. GM may confirm exchange.`;
+      setLastAction(next, `${sideLabel(side)} called ${currentBet}. GM may confirm exchange.`);
     } else {
-      next.lastAction = `${sideLabel(side)} called ${currentBet}. GM may confirm showdown.`;
+      setLastAction(next, `${sideLabel(side)} called ${currentBet}. GM may confirm showdown.`);
     }
     next.turn = null;
     return next;
   }
 
   next.betting.consecutiveCalls[side] += 1;
-  next.lastAction = `${sideLabel(side)} called.`;
+  setLastAction(next, `${sideLabel(side)} called.`);
   if (next.betting.consecutiveCalls[side] >= 2) return finishDraw(next, "A side called twice. The round is a draw.");
   next.turn = otherSide(side);
   return next;
@@ -113,7 +114,8 @@ export function handleFold(state, side) {
   };
   next.phase = PHASES.ROUND_END;
   next.turn = null;
-  next.lastAction = `${sideLabel(side)} folded. ${sideLabel(winner)} receives the folding side's non-attendance committed chips.`;
+  next.dealer = winner;
+  setLastAction(next, `${sideLabel(side)} folded. ${sideLabel(winner)} receives the folding side's non-attendance committed chips. ${sideLabel(winner)} acts first next round.`);
   return maybeEndMatch(next);
 }
 
@@ -127,13 +129,15 @@ export function handleExchange(state, side, indexes) {
   const next = clone(state);
   const drawResult = draw(next.deck, unique.length);
   const hand = [...next.hands[side]];
+  const discarded = unique.map((handIndex) => hand[handIndex]);
   unique.forEach((handIndex, drawIndex) => {
     hand[handIndex] = drawResult.cards[drawIndex];
   });
   next.hands[side] = hand;
   next.deck = drawResult.deck;
   next.exchangeDone[side] = true;
-  next.lastAction = `${sideLabel(side)} exchanged ${unique.length} card${unique.length === 1 ? "" : "s"}.`;
+  addExchangeLog(next, side, discarded);
+  setLastAction(next, `${sideLabel(side)} exchanged ${unique.length} card${unique.length === 1 ? "" : "s"}.`);
   return next;
 }
 
@@ -145,7 +149,7 @@ export function confirmNextPhase(state) {
     if (next.turn) throw new Error("Resolve the first betting action before moving to exchange.");
     next.phase = PHASES.EXCHANGE;
     next.exchangeDone = { [SIDES.GM]: false, [SIDES.PLAYERS]: false };
-    next.lastAction = "GM opened the exchange phase.";
+    setLastAction(next, "GM opened the exchange phase.");
     return next;
   }
 
@@ -156,14 +160,14 @@ export function confirmNextPhase(state) {
     next.phase = PHASES.SECOND_BETTING;
     next.turn = next.dealer || SIDES.GM;
     next.betting = resetBetting(next.betting.firstRoundBet);
-    next.lastAction = `GM opened second betting. Minimum raise is ${currentRaiseLimits(next).min}.`;
+    setLastAction(next, `GM opened second betting. Minimum raise is ${currentRaiseLimits(next).min}.`);
     return next;
   }
 
   if (next.phase === PHASES.SECOND_BETTING) {
     if (next.turn) throw new Error("Resolve the second betting action before showdown.");
     next.phase = PHASES.SHOWDOWN;
-    next.lastAction = "GM opened showdown.";
+    setLastAction(next, "GM opened showdown.");
     return next;
   }
 
@@ -206,7 +210,7 @@ function finishDraw(state, reason) {
   next.result = { winner: null, reason, handRank: null };
   next.phase = PHASES.ROUND_END;
   next.turn = null;
-  next.lastAction = `${reason} Non-attendance chips returned; attendance remains with the house.`;
+  setLastAction(next, `${reason} Non-attendance chips returned; attendance remains with the house.`);
   return maybeEndMatch(next);
 }
 
@@ -214,16 +218,18 @@ function finishShowdown(state) {
   const next = clone(state);
   const comparison = compareHands(next.hands[SIDES.GM], next.hands[SIDES.PLAYERS]);
   const pot = next.committed[SIDES.GM] + next.committed[SIDES.PLAYERS];
+  setLastAction(next, `Gamemaster: ${comparison.gm.label} vs Players: ${comparison.players.label}.`);
 
   if (comparison.winner) {
     next.chips[comparison.winner] += pot;
+    next.dealer = comparison.winner;
     next.result = {
       winner: comparison.winner,
       reason: `${sideLabel(comparison.winner)} wins the showdown.`,
       handRank: comparison[comparison.winner === SIDES.GM ? "gm" : "players"].label,
       hands: comparison
     };
-    next.lastAction = `${sideLabel(comparison.winner)} wins ${pot} chips with ${next.result.handRank}.`;
+    setLastAction(next, `${sideLabel(comparison.winner)} wins ${pot} chips with ${next.result.handRank}. ${sideLabel(comparison.winner)} acts first next round.`);
   } else {
     next.chips[SIDES.GM] += next.committed[SIDES.GM];
     next.chips[SIDES.PLAYERS] += next.committed[SIDES.PLAYERS];
@@ -233,7 +239,7 @@ function finishShowdown(state) {
       handRank: comparison.gm.label,
       hands: comparison
     };
-    next.lastAction = "Showdown tied. Non-attendance chips returned; attendance remains with the house.";
+    setLastAction(next, "Showdown tied. Non-attendance chips returned; attendance remains with the house.");
   }
 
   next.committed = { [SIDES.GM]: 0, [SIDES.PLAYERS]: 0 };
@@ -255,7 +261,28 @@ function maybeEndMatch(state) {
       matchWinner: winner,
       matchReason: winner ? `${sideLabel(winner)} wins the match by chip total.` : "The match ends tied by chip total."
     };
-    next.lastAction = `${next.lastAction} ${next.result.matchReason}`;
+    setLastAction(next, `${next.lastAction} ${next.result.matchReason}`);
   }
   return next;
+}
+
+function ensureRoundLogs(state) {
+  if (!state.roundLogs) state.roundLogs = emptyRoundLogs();
+  if (!Array.isArray(state.roundLogs.actions)) state.roundLogs.actions = [];
+  if (!state.roundLogs.exchanges) state.roundLogs.exchanges = emptyRoundLogs().exchanges;
+  if (!Array.isArray(state.roundLogs.exchanges[SIDES.GM])) state.roundLogs.exchanges[SIDES.GM] = [];
+  if (!Array.isArray(state.roundLogs.exchanges[SIDES.PLAYERS])) state.roundLogs.exchanges[SIDES.PLAYERS] = [];
+}
+
+function setLastAction(state, message) {
+  ensureRoundLogs(state);
+  state.lastAction = message;
+  state.roundLogs.actions.push(message);
+}
+
+function addExchangeLog(state, side, discarded) {
+  ensureRoundLogs(state);
+  state.roundLogs.exchanges[side].push({
+    discarded: discarded.map(cardToText)
+  });
 }

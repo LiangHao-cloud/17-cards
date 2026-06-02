@@ -223,7 +223,7 @@ export class SeventeenCardsApp extends BaseApplication {
         <span>Committed: GM ${state.committed[SIDES.GM]} / Players ${state.committed[SIDES.PLAYERS]}</span>
         <span>Turn: ${state.turn ? sideLabel(state.turn) : "GM confirmation"}</span>
       </div>
-      <p class="seventeen-cards__last">${state.lastAction}</p>
+      ${this.renderActionLog(data)}
       <div class="seventeen-cards__sides">
         ${this.renderSide(data, SIDES.GM)}
         ${this.renderSide(data, SIDES.PLAYERS)}
@@ -254,6 +254,7 @@ export class SeventeenCardsApp extends BaseApplication {
           <span>Committed ${state.committed[side]}</span>
           ${state.exchangeDone[side] ? "<span>Exchange done</span>" : ""}
         </div>
+        ${this.renderExchangeLog(data, side, visible)}
         ${this.renderBetControls(data, side, canUseBetActions)}
         ${canExchange ? `<button type="button" data-action="exchange" data-side="${side}"><i class="fas fa-repeat"></i> Exchange Selected</button>` : ""}
       </article>
@@ -286,6 +287,43 @@ export class SeventeenCardsApp extends BaseApplication {
         <button type="button" data-bet-action="raise" data-side="${side}" ${raiseDisabled}>Raise to</button>
       </div>
       <p class="seventeen-cards-hint">${canRaise ? `Raise to ${limits.min}-${limits.max}` : `Maximum bet reached. ${hasCallAmount ? `Call ${limits.callAmount} or fold.` : "Call or fold."}`}</p>
+    `;
+  }
+
+  renderActionLog(data) {
+    const logs = data.state.roundLogs?.actions?.length ? data.state.roundLogs.actions : [data.state.lastAction];
+    return `
+      <section class="seventeen-cards-log" aria-label="Round log">
+        ${logs.map((log) => `<p>${log}</p>`).join("")}
+      </section>
+    `;
+  }
+
+  renderExchangeLog(data, side, visible) {
+    if (!visible) {
+      return `
+        <details class="seventeen-cards-exchange-log">
+          <summary>Exchange Log</summary>
+          <p>?</p>
+        </details>
+      `;
+    }
+
+    const exchanges = data.state.roundLogs?.exchanges?.[side] || [];
+    const body = exchanges.length
+      ? exchanges.map((entry, index) => `
+        <p>
+          <strong>${index + 1}.</strong>
+          Out: ${entry.discarded.length ? entry.discarded.join(", ") : "none"}
+        </p>
+      `).join("")
+      : "<p>No cards exchanged this round.</p>";
+
+    return `
+      <details class="seventeen-cards-exchange-log">
+        <summary>Exchange Log</summary>
+        ${body}
+      </details>
     `;
   }
 

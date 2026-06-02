@@ -33,9 +33,20 @@ export function emptyState() {
       [SIDES.GM]: false,
       [SIDES.PLAYERS]: false
     },
+    roundLogs: emptyRoundLogs(),
     betting: resetBetting(),
     lastAction: "No game has started.",
     result: null
+  };
+}
+
+export function emptyRoundLogs() {
+  return {
+    actions: [],
+    exchanges: {
+      [SIDES.GM]: [],
+      [SIDES.PLAYERS]: []
+    }
   };
 }
 

@@ -1,4 +1,4 @@
-import { SIDES } from "./constants.js";
+import { PHASES, SIDES } from "./constants.js";
 
 export function sideLabel(side) {
   return side === SIDES.GM ? "Gamemaster" : "Players";
@@ -14,6 +14,7 @@ export function canActForSide(state, side) {
 }
 
 export function canSeeHand(state, side) {
+  if ([PHASES.SHOWDOWN, PHASES.ROUND_END, PHASES.MATCH_END].includes(state.phase)) return true;
   if (game.user.isGM) return side === SIDES.GM;
   return side === SIDES.PLAYERS && state.active;
 }
