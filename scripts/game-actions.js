@@ -43,6 +43,7 @@ export function beginRound(state, keepChips = true) {
   next.chips[SIDES.GM] = Math.max(0, Number(next.chips[SIDES.GM]) - ATTENDANCE_FEE);
   next.chips[SIDES.PLAYERS] = Math.max(0, Number(next.chips[SIDES.PLAYERS]) - ATTENDANCE_FEE);
   next.deck = playerDraw.deck;
+  next.discards = [];
   next.hands = {
     [SIDES.GM]: gmDraw.cards,
     [SIDES.PLAYERS]: playerDraw.cards
@@ -135,6 +136,7 @@ export function handleExchange(state, side, indexes) {
   });
   next.hands[side] = hand;
   next.deck = drawResult.deck;
+  next.discards = [...(next.discards || []), ...discarded];
   next.exchangeDone[side] = true;
   addExchangeLog(next, side, discarded);
   setLastAction(next, `${sideLabel(side)} exchanged ${unique.length} card${unique.length === 1 ? "" : "s"}.`);

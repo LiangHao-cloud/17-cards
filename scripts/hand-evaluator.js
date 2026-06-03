@@ -12,8 +12,10 @@ export function evaluateHand(hand) {
   const jokerIndex = normalized.findIndex((card) => card.joker);
   if (jokerIndex === -1) return evaluateConcreteHand(normalized);
 
-  const naturalSuits = new Set(normalized.filter((card) => !card.joker).map((card) => card.suit));
+  const naturalCards = normalized.filter((card) => !card.joker);
+  const naturalSuits = new Set(naturalCards.map((card) => card.suit));
   if (naturalSuits.size === 4) return rankResult(8, [14], "Five Suits");
+  if (hasRoyalRanks(naturalCards) && naturalSuits.size > 1) return rankResult(4, [14], "Straight");
 
   let best = null;
   for (const substitute of jokerAlternatives()) {
@@ -67,18 +69,21 @@ function evaluateConcreteHand(hand) {
   const groups = Object.entries(counts)
     .map(([value, count]) => ({ value: Number(value), count }))
     .sort((a, b) => b.count - a.count || b.value - a.value);
-  const uniqueValues = [...new Set(values)].sort((a, b) => b - a);
-  const isStraight = uniqueValues.length === 4 && uniqueValues.every((value, index) => index === 0 || uniqueValues[index - 1] - value === 1);
   const hasRoyalFlush = SUITS.some((suit) => RANKS.every((rank) => hand.some((card) => card.suit === suit.id && card.rank === rank.id)));
 
   if (hasRoyalFlush) return rankResult(7, [14], "Royal Flush");
   if (groups[0].count === 4) return rankResult(6, [groups[0].value], "Four of a Kind");
   if (groups[0].count === 3 && groups[1]?.count === 2) return rankResult(5, [groups[0].value, groups[1].value], "Full House");
-  if (isStraight) return rankResult(4, [uniqueValues[0]], "Straight");
   if (groups[0].count === 3) return rankResult(3, [groups[0].value, ...groups.slice(1).map((group) => group.value).sort((a, b) => b - a)], "Three of a Kind");
   if (groups[0].count === 2 && groups[1]?.count === 2) return rankResult(2, [groups[0].value, groups[1].value, groups[2].value], "Two Pair");
   if (groups[0].count === 2) return rankResult(1, [groups[0].value, ...groups.slice(1).map((group) => group.value).sort((a, b) => b - a)], "One Pair");
   return rankResult(0, values, "High Card");
+}
+
+function hasRoyalRanks(cards) {
+  if (cards.length !== RANKS.length) return false;
+  const ranks = new Set(cards.map((card) => card.rank));
+  return RANKS.every((rank) => ranks.has(rank.id));
 }
 
 function rankResult(rank, tieBreakers, label) {

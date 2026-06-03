@@ -1,4 +1,4 @@
-import { MODULE_ID, SOCKET, STATE_SETTING } from "./constants.js";
+import { DEBUG_MODE_SETTING, MODULE_ID, SOCKET, STATE_SETTING } from "./constants.js";
 import { SeventeenCardsApp } from "./app.js";
 import { applyAction } from "./socket-controller.js";
 import { emptyState } from "./state.js";
@@ -10,6 +10,15 @@ Hooks.once("init", () => {
     type: Object,
     default: emptyState()
   });
+
+  game.settings.register(MODULE_ID, DEBUG_MODE_SETTING, {
+    name: "Debug / Cheat Mode",
+    hint: "Expose full card locations to Gamemasters for development and testing.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: false
+  });
 });
 
 Hooks.once("ready", () => {
@@ -20,7 +29,9 @@ Hooks.once("ready", () => {
 });
 
 Hooks.on("updateSetting", (setting) => {
-  if (setting.key === `${MODULE_ID}.${STATE_SETTING}` || (setting.namespace === MODULE_ID && setting.key === STATE_SETTING)) {
+  const stateKey = `${MODULE_ID}.${STATE_SETTING}`;
+  const debugKey = `${MODULE_ID}.${DEBUG_MODE_SETTING}`;
+  if (setting.key === stateKey || setting.key === debugKey || (setting.namespace === MODULE_ID && [STATE_SETTING, DEBUG_MODE_SETTING].includes(setting.key))) {
     SeventeenCardsApp.renderIfOpen();
   }
 });

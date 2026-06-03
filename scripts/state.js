@@ -25,6 +25,7 @@ export function emptyState() {
     },
     house: 0,
     deck: [],
+    discards: [],
     hands: {
       [SIDES.GM]: [],
       [SIDES.PLAYERS]: []

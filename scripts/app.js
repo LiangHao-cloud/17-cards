@@ -1,4 +1,4 @@
-import { PHASE_LABELS, PHASES, SIDES } from "./constants.js";
+import { DEBUG_MODE_SETTING, MODULE_ID, PHASE_LABELS, PHASES, SIDES } from "./constants.js";
 import { cardToText } from "./cards.js";
 import { currentRaiseLimits } from "./game-actions.js";
 import { canActForSide, canSeeHand, sideLabel } from "./permissions.js";
@@ -56,13 +56,16 @@ export class SeventeenCardsApp extends BaseApplication {
     const state = getState();
     const users = game.users.filter((user) => !user.isGM && user.active);
     const raiseLimits = currentRaiseLimits(state);
+    const debugMode = game.settings.get(MODULE_ID, DEBUG_MODE_SETTING);
     return {
       state,
       users,
       isGM: game.user.isGM,
       isOperator: game.user.id === state.operatorUserId,
       phaseLabel: PHASE_LABELS[state.phase],
-      raiseLimits
+      raiseLimits,
+      debugMode,
+      showDebug: game.user.isGM && debugMode
     };
   }
 
@@ -128,6 +131,11 @@ export class SeventeenCardsApp extends BaseApplication {
         return;
       }
 
+      if (button.dataset.action === "toggle-debug") {
+        await game.settings.set(MODULE_ID, DEBUG_MODE_SETTING, button.dataset.enabled !== "true");
+        return;
+      }
+
       if (button.dataset.action === "confirm") {
         await requestAction("confirm");
         return;
@@ -170,6 +178,7 @@ export class SeventeenCardsApp extends BaseApplication {
           <p>Round ${data.state.round || 0}/${data.state.maxRounds} - ${data.phaseLabel}</p>
         </div>
         <div class="seventeen-cards__actions">
+          ${data.isGM ? `<button type="button" data-action="toggle-debug" data-enabled="${data.debugMode}"><i class="fas fa-eye"></i> Debug ${data.debugMode ? "On" : "Off"}</button>` : ""}
           ${data.isGM ? `<button type="button" data-action="reset"><i class="fas fa-rotate-left"></i> Reset</button>` : ""}
         </div>
       </header>
@@ -229,6 +238,7 @@ export class SeventeenCardsApp extends BaseApplication {
         ${this.renderSide(data, SIDES.PLAYERS)}
       </div>
       ${this.renderResult(data)}
+      ${this.renderDebugPanel(data)}
       ${this.renderGmConfirm(data)}
     `;
   }
@@ -338,6 +348,61 @@ export class SeventeenCardsApp extends BaseApplication {
         ${result.matchReason ? `<p>${result.matchReason}</p>` : ""}
       </section>
     `;
+  }
+
+  renderDebugPanel(data) {
+    if (!data.showDebug) return "";
+    const { state } = data;
+    const zones = [
+      { title: "Gamemaster Hand", cards: state.hands[SIDES.GM] || [] },
+      { title: "Players Hand", cards: state.hands[SIDES.PLAYERS] || [] },
+      { title: "Deck Order", cards: state.deck || [], numbered: true },
+      { title: "Discarded / Exchanged Out", cards: state.discards || [] }
+    ];
+    const jokerLocation = this.findJokerLocation(state);
+
+    return `
+      <section class="seventeen-cards-debug">
+        <header>
+          <h3>Debug / Cheat Mode</h3>
+          <strong>${jokerLocation}</strong>
+        </header>
+        <div class="seventeen-cards-debug__zones">
+          ${zones.map((zone) => this.renderDebugZone(zone)).join("")}
+        </div>
+      </section>
+    `;
+  }
+
+  renderDebugZone(zone) {
+    const cards = zone.cards || [];
+    return `
+      <section class="seventeen-cards-debug-zone">
+        <h4>${zone.title}</h4>
+        <ol>
+          ${cards.length ? cards.map((card, index) => `
+            <li class="${card?.joker ? "is-joker" : ""}">
+              ${zone.numbered ? `#${index + 1} ` : ""}${cardToText(card)}
+            </li>
+          `).join("") : "<li>none</li>"}
+        </ol>
+      </section>
+    `;
+  }
+
+  findJokerLocation(state) {
+    const checks = [
+      ["Gamemaster hand", state.hands[SIDES.GM] || []],
+      ["Players hand", state.hands[SIDES.PLAYERS] || []],
+      ["Deck", state.deck || []],
+      ["Discarded", state.discards || []]
+    ];
+
+    for (const [label, cards] of checks) {
+      const index = cards.findIndex((card) => card?.joker);
+      if (index !== -1) return label === "Deck" ? `Joker: Deck #${index + 1}` : `Joker: ${label}`;
+    }
+    return "Joker: unknown";
   }
 
   renderGmConfirm(data) {

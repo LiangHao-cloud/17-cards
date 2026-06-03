@@ -1,6 +1,7 @@
 export const MODULE_ID = "17-cards";
 export const SOCKET = `module.${MODULE_ID}`;
 export const STATE_SETTING = "state";
+export const DEBUG_MODE_SETTING = "debugMode";
 
 export const ATTENDANCE_FEE = 5;
 export const MAX_ROUNDS = 10;

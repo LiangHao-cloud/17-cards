@@ -50,7 +50,7 @@ Hands are compared in this order, from strongest to weakest:
 2. Royal flush
 3. Four of a kind
 4. Full house
-5. Straight
+5. Straight, meaning A/J/Q/K plus the Joker with at least two suits among the four natural cards
 6. Three of a kind
 7. Two pair
 8. One pair
